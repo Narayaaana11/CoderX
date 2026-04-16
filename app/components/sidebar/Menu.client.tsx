@@ -6,7 +6,7 @@ import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from
 import { IconButton } from '~/components/ui/IconButton';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { db, deleteById, getAll, chatId, type ChatHistoryItem } from '~/lib/persistence';
-import { llmSettingsStore } from '~/lib/stores/settings';
+import { developmentSkillsStore, llmSettingsStore } from '~/lib/stores/settings';
 import {
   createDefaultProviderSettings,
   type LLMProvider,
@@ -54,7 +54,10 @@ export function Menu() {
   const [open, setOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState<DialogContent>(null);
   const llmSettings = useStore(llmSettingsStore);
+  const developmentSkills = useStore(developmentSkillsStore);
   const [draftLLMSettings, setDraftLLMSettings] = useState<LLMProviderSettings>(llmSettings);
+  const [draftSkills, setDraftSkills] = useState<string[]>(developmentSkills);
+  const [skillInput, setSkillInput] = useState('');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
@@ -100,9 +103,11 @@ export function Menu() {
   useEffect(() => {
     if (dialogContent?.type !== 'settings') {
       setDraftLLMSettings(llmSettings);
+      setDraftSkills(developmentSkills);
+      setSkillInput('');
       setAvailableModels([]);
     }
-  }, [llmSettings, dialogContent]);
+  }, [llmSettings, developmentSkills, dialogContent]);
 
   useEffect(() => {
     const enterThreshold = 40;
@@ -127,8 +132,35 @@ export function Menu() {
 
   const openSettingsDialog = () => {
     setDraftLLMSettings(llmSettings);
+    setDraftSkills(developmentSkills);
+    setSkillInput('');
     setAvailableModels([]);
     setDialogContent({ type: 'settings' });
+  };
+
+  const addSkill = () => {
+    const normalizedSkill = skillInput.trim();
+
+    if (!normalizedSkill) {
+      return;
+    }
+
+    if (draftSkills.some((skill) => skill.toLowerCase() === normalizedSkill.toLowerCase())) {
+      toast.info('Skill already added');
+      return;
+    }
+
+    if (draftSkills.length >= 30) {
+      toast.error('Skill limit reached (30 max)');
+      return;
+    }
+
+    setDraftSkills((current) => [...current, normalizedSkill]);
+    setSkillInput('');
+  };
+
+  const removeSkill = (skillToRemove: string) => {
+    setDraftSkills((current) => current.filter((skill) => skill !== skillToRemove));
   };
 
   const setProvider = (provider: LLMProvider) => {
@@ -208,8 +240,9 @@ export function Menu() {
     };
   };
 
-  const saveLLMSettings = () => {
+  const saveSettings = () => {
     const normalizedSettings = normalizeDraftSettings(draftLLMSettings);
+    const normalizedSkills = draftSkills.map((skill) => skill.trim()).filter(Boolean);
 
     const validation = validateLLMProviderSettings(normalizedSettings);
 
@@ -219,7 +252,8 @@ export function Menu() {
     }
 
     llmSettingsStore.set(normalizedSettings);
-    toast.success('Model settings saved');
+    developmentSkillsStore.set(normalizedSkills);
+    toast.success('Settings saved');
     closeDialog();
   };
 
@@ -411,6 +445,51 @@ export function Menu() {
                         </datalist>
                       </label>
 
+                      <div className="rounded-xl border border-bolt-elements-borderColor bg-gradient-to-br from-bolt-elements-background-depth-1 to-bolt-elements-background-depth-2 p-3 space-y-3">
+                        <div>
+                          <h3 className="text-sm font-semibold text-bolt-elements-textPrimary">Skills</h3>
+                          <p className="text-xs text-bolt-elements-textSecondary mt-1">
+                            Add development skills (Claude-style) to steer code quality and architecture.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
+                            value={skillInput}
+                            onChange={(event) => setSkillInput(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                addSkill();
+                              }
+                            }}
+                            placeholder="e.g. Clean Architecture, Accessibility, Test-driven development"
+                          />
+                          <DialogButton type="secondary" onClick={addSkill}>
+                            Add
+                          </DialogButton>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 min-h-8">
+                          {draftSkills.length === 0 && (
+                            <span className="text-xs text-bolt-elements-textSecondary">No skills added yet.</span>
+                          )}
+                          {draftSkills.map((skill) => (
+                            <button
+                              type="button"
+                              key={skill}
+                              onClick={() => removeSkill(skill)}
+                              className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-200 hover:bg-cyan-500/20 transition-theme"
+                              title="Remove skill"
+                            >
+                              {skill}
+                              <span aria-hidden>×</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-3 space-y-2">
                         <h3 className="text-sm font-semibold text-bolt-elements-textPrimary">About CoderX</h3>
                         <p className="text-xs text-bolt-elements-textSecondary">CoderX v1.0.0</p>
@@ -484,7 +563,7 @@ export function Menu() {
                     <DialogButton type="secondary" onClick={testConnection}>
                       Test
                     </DialogButton>
-                    <DialogButton type="primary" onClick={saveLLMSettings}>
+                    <DialogButton type="primary" onClick={saveSettings}>
                       Save
                     </DialogButton>
                   </div>

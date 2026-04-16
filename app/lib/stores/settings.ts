@@ -24,6 +24,7 @@ export interface Shortcuts {
 export interface Settings {
   shortcuts: Shortcuts;
   llm: LLMProviderSettings;
+  developmentSkills: string[];
 }
 
 const SETTINGS_STORAGE_KEY = 'bolt_settings';
@@ -94,6 +95,38 @@ function getStoredLLMSettings(): LLMProviderSettings {
   return getDefaultLLMProviderSettings();
 }
 
+function normalizeDevelopmentSkills(skills: unknown): string[] {
+  if (!Array.isArray(skills)) {
+    return [];
+  }
+
+  const normalized = skills
+    .map((skill) => (typeof skill === 'string' ? skill.trim() : ''))
+    .filter((skill) => skill.length > 0)
+    .slice(0, 30);
+
+  return [...new Set(normalized)];
+}
+
+function getStoredDevelopmentSkills(): string[] {
+  if (import.meta.env.SSR) {
+    return [];
+  }
+
+  const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+
+  if (!rawSettings) {
+    return [];
+  }
+
+  try {
+    const parsedSettings = JSON.parse(rawSettings) as { developmentSkills?: unknown };
+    return normalizeDevelopmentSkills(parsedSettings.developmentSkills);
+  } catch {
+    return [];
+  }
+}
+
 function persistSettings(settings: Settings) {
   if (import.meta.env.SSR) {
     return;
@@ -103,6 +136,7 @@ function persistSettings(settings: Settings) {
     SETTINGS_STORAGE_KEY,
     JSON.stringify({
       llm: settings.llm,
+      developmentSkills: settings.developmentSkills,
     }),
   );
 }
@@ -116,10 +150,12 @@ export const shortcutsStore = map<Shortcuts>({
 });
 
 export const llmSettingsStore = map<LLMProviderSettings>(getStoredLLMSettings());
+export const developmentSkillsStore = map<string[]>(getStoredDevelopmentSkills());
 
 export const settingsStore = map<Settings>({
   shortcuts: shortcutsStore.get(),
   llm: llmSettingsStore.get(),
+  developmentSkills: developmentSkillsStore.get(),
 });
 
 shortcutsStore.subscribe((shortcuts) => {
@@ -143,6 +179,23 @@ llmSettingsStore.subscribe((llm) => {
   const next = {
     ...settingsStore.get(),
     llm: normalizedLLM,
+  };
+
+  settingsStore.set(next);
+  persistSettings(next);
+});
+
+developmentSkillsStore.subscribe((skills) => {
+  const normalizedSkills = normalizeDevelopmentSkills(skills);
+
+  if (normalizedSkills.length !== skills.length || normalizedSkills.some((skill, index) => skill !== skills[index])) {
+    developmentSkillsStore.set(normalizedSkills);
+    return;
+  }
+
+  const next = {
+    ...settingsStore.get(),
+    developmentSkills: normalizedSkills,
   };
 
   settingsStore.set(next);

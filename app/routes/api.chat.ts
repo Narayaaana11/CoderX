@@ -12,11 +12,18 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 async function chatAction({ context, request }: ActionFunctionArgs) {
-  const { messages, providerSettings: requestProviderSettings } = await request.json<{
+  const { messages, providerSettings: requestProviderSettings, developmentSkills } = await request.json<{
     messages: Messages;
     providerSettings?: unknown;
+    developmentSkills?: unknown;
   }>();
   const boundedMessages = buildHistoryContext(messages);
+  const normalizedSkills = Array.isArray(developmentSkills)
+    ? developmentSkills
+        .map((skill) => (typeof skill === 'string' ? skill.trim() : ''))
+        .filter((skill) => skill.length > 0)
+        .slice(0, 30)
+    : [];
 
   const stream = new SwitchableStream();
 
@@ -63,6 +70,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
         const result = await streamText(boundedMessages, providerSettings, options, {
           agentContext: agentContext || undefined,
+          developmentSkills: normalizedSkills,
         });
 
         return stream.switchSource(result.toAIStream());
@@ -71,6 +79,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
     const result = await streamText(boundedMessages, providerSettings, options, {
       agentContext: agentContext || undefined,
+      developmentSkills: normalizedSkills,
     });
 
     stream.switchSource(result.toAIStream());

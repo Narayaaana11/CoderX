@@ -7,7 +7,7 @@ import { cssTransition, toast, ToastContainer } from 'react-toastify';
 import { useMessageParser, usePromptEnhancer, useShortcuts, useSnapScroll } from '~/lib/hooks';
 import { useChatHistory } from '~/lib/persistence';
 import { chatStore } from '~/lib/stores/chat';
-import { llmSettingsStore } from '~/lib/stores/settings';
+import { developmentSkillsStore, llmSettingsStore } from '~/lib/stores/settings';
 import { type LLMProviderSettings } from '~/types/llm';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { fileModificationsToHTML } from '~/utils/diff';
@@ -87,6 +87,7 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
 
   const { showChat } = useStore(chatStore);
   const llmSettings = useStore(llmSettingsStore);
+  const developmentSkills = useStore(developmentSkillsStore);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
@@ -169,6 +170,7 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
     api: '/api/chat',
     body: {
       providerSettings: llmSettings,
+      developmentSkills,
     },
     onError: (error) => {
       logger.error('Request failed\n\n', error);
@@ -282,6 +284,7 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
         {
           body: {
             providerSettings: llmSettings,
+            developmentSkills,
           },
         },
       );
@@ -297,6 +300,7 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
         {
           body: {
             providerSettings: llmSettings,
+            developmentSkills,
           },
         },
       );

@@ -16,6 +16,7 @@ Repository: https://github.com/Narayaaana11/CoderX
 - Quick Start
 - Full Setup
 - Important Files
+- Skills
 - Run and Validate
 - How to Use
 - Project Structure
@@ -109,6 +110,27 @@ OLLAMA_MODEL=qwen2.5-coder:7b
 - `wrangler.toml`: Cloudflare Pages/Workers project configuration
 - `package.json`: scripts, dependencies, and Node engine requirements
 - `worker-configuration.d.ts`: typed list of supported env variables
+
+## Skills
+
+CoderX now includes a Claude-style **Skills** section in **Model Settings**.
+
+Use it to add development preferences such as:
+
+- Accessibility-first UI
+- Clean Architecture
+- Test-driven development
+- Performance optimization
+- Security hardening
+
+Where to find it:
+
+1. Open the sidebar menu
+2. Click **Model Settings**
+3. Add skills under the **Skills** panel
+4. Save settings
+
+These skills are sent with chat requests and used as guidance during code generation.
 
 ## Run and Validate
 

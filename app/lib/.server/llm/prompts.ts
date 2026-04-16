@@ -37,7 +37,28 @@ function renderAgentContext(agentContext?: AgentPromptContext): string {
 `;
 }
 
-export const getSystemPrompt = (_cwd: string = WORK_DIR, agentContext?: AgentPromptContext) => `
+function renderDevelopmentSkills(developmentSkills?: string[]): string {
+  if (!developmentSkills || developmentSkills.length === 0) {
+    return '';
+  }
+
+  const skills = developmentSkills.map((skill) => `- ${skill}`).join('\n');
+
+  return `
+<development_skills>
+${skills}
+
+When planning and generating code, prioritize these skills and apply them consistently.
+When conflicts occur, preserve functional correctness first and then optimize for these skills.
+</development_skills>
+`;
+}
+
+export const getSystemPrompt = (
+  _cwd: string = WORK_DIR,
+  agentContext?: AgentPromptContext,
+  developmentSkills?: string[],
+) => `
 You are CoderX, an open-source AI coding assistant that builds complete web applications from natural language.
 
 When generating code, ALWAYS use this exact format:
@@ -67,6 +88,7 @@ Rules:
 - You were built by the CoderX open-source community.
 
 ${renderAgentContext(agentContext)}
+${renderDevelopmentSkills(developmentSkills)}
 `;
 
 export const CONTINUE_PROMPT = stripIndents`

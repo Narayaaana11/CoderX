@@ -23,6 +23,7 @@ export type StreamingOptions = Omit<Parameters<typeof _streamText>[0], 'model'>;
 
 interface PromptContext {
   agentContext?: AgentPromptContext;
+  developmentSkills?: string[];
 }
 
 export function streamText(
@@ -33,7 +34,7 @@ export function streamText(
 ) {
   return _streamText({
     model: getModelFromProviderConfig(providerSettings),
-    system: getSystemPrompt(undefined, promptContext?.agentContext),
+    system: getSystemPrompt(undefined, promptContext?.agentContext, promptContext?.developmentSkills),
     maxTokens: MAX_TOKENS,
     messages: convertToCoreMessages(messages),
     ...options,
