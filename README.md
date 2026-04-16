@@ -15,6 +15,7 @@ Repository: https://github.com/Narayaaana11/CoderX
 - Overview
 - Quick Start
 - Full Setup
+- Important Files
 - Run and Validate
 - How to Use
 - Project Structure
@@ -77,12 +78,37 @@ ollama --version
 
 ### Optional Local Model Configuration
 
-Create `.env.local` in the repo root:
+Copy the example files in the repo root:
+
+```bash
+cp .env.example .env
+cp .env.local.example .env.local
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item .env.local.example .env.local
+```
+
+Then update values if needed. Minimum local setup:
 
 ```env
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=qwen2.5-coder:7b
 ```
+
+## Important Files
+
+- `.env.example`: Full environment variable template for providers and agent URL
+- `.env.local.example`: Local dev bindings read by `scripts/start.mjs`
+- `.env`: Your actual runtime env values (do not commit secrets)
+- `.env.local`: Local Wrangler binding values for dev
+- `.dev.vars`: Local Cloudflare-style variables (optional in this flow)
+- `wrangler.toml`: Cloudflare Pages/Workers project configuration
+- `package.json`: scripts, dependencies, and Node engine requirements
+- `worker-configuration.d.ts`: typed list of supported env variables
 
 ## Run and Validate
 
