@@ -1,44 +1,33 @@
-import * as RadixDialog from '@radix-ui/react-dialog';
-import { motion, type Variants } from 'framer-motion';
-import React, { memo, type ReactNode } from 'react';
+import React, { cloneElement, createContext, memo, useContext, type ReactNode } from 'react';
 import { classNames } from '~/utils/classNames';
-import { cubicEasingFn } from '~/utils/easings';
 import { IconButton } from './IconButton';
 
-export { Close as DialogClose, Root as DialogRoot } from '@radix-ui/react-dialog';
+const DialogOpenContext = createContext(false);
 
-const transition = {
-  duration: 0.15,
-  ease: cubicEasingFn,
-};
+interface DialogRootProps {
+  open: boolean;
+  children: ReactNode;
+}
 
-export const dialogBackdropVariants = {
-  closed: {
-    opacity: 0,
-    transition,
-  },
-  open: {
-    opacity: 1,
-    transition,
-  },
-} satisfies Variants;
+export const DialogRoot = memo(({ open, children }: DialogRootProps) => {
+  return <DialogOpenContext.Provider value={open}>{children}</DialogOpenContext.Provider>;
+});
 
-export const dialogVariants = {
-  closed: {
-    x: '-50%',
-    y: '-40%',
-    scale: 0.96,
-    opacity: 0,
-    transition,
-  },
-  open: {
-    x: '-50%',
-    y: '-50%',
-    scale: 1,
-    opacity: 1,
-    transition,
-  },
-} satisfies Variants;
+interface DialogCloseProps {
+  children: React.ReactElement;
+  onClick?: (event: React.UIEvent) => void;
+}
+
+export const DialogClose = memo(({ children, onClick }: DialogCloseProps) => {
+  const childOnClick = (children.props as { onClick?: (event: React.UIEvent) => void }).onClick;
+
+  return cloneElement(children, {
+    onClick: (event: React.UIEvent) => {
+      childOnClick?.(event);
+      onClick?.(event);
+    },
+  });
+});
 
 interface DialogButtonProps {
   type: 'primary' | 'secondary' | 'danger';
@@ -67,9 +56,9 @@ export const DialogButton = memo(({ type, children, onClick }: DialogButtonProps
   );
 });
 
-export const DialogTitle = memo(({ className, children, ...props }: RadixDialog.DialogTitleProps) => {
+export const DialogTitle = memo(({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => {
   return (
-    <RadixDialog.Title
+    <div
       className={classNames(
         'px-5 py-4 flex items-center justify-between border-b border-bolt-elements-borderColor text-lg font-semibold leading-6 text-bolt-elements-textPrimary',
         className,
@@ -77,18 +66,28 @@ export const DialogTitle = memo(({ className, children, ...props }: RadixDialog.
       {...props}
     >
       {children}
-    </RadixDialog.Title>
+    </div>
   );
 });
 
-export const DialogDescription = memo(({ className, children, ...props }: RadixDialog.DialogDescriptionProps) => {
+interface DialogDescriptionProps extends React.HTMLAttributes<HTMLDivElement> {
+  asChild?: boolean;
+}
+
+export const DialogDescription = memo(({ className, children, asChild = false, ...props }: DialogDescriptionProps) => {
+  if (asChild && React.isValidElement(children)) {
+    const typedChild = children as React.ReactElement<{ className?: string }>;
+
+    return cloneElement(typedChild, {
+      ...props,
+      className: classNames('px-5 py-4 text-bolt-elements-textPrimary text-md', className, typedChild.props.className),
+    });
+  }
+
   return (
-    <RadixDialog.Description
-      className={classNames('px-5 py-4 text-bolt-elements-textPrimary text-md', className)}
-      {...props}
-    >
+    <div className={classNames('px-5 py-4 text-bolt-elements-textPrimary text-md', className)} {...props}>
       {children}
-    </RadixDialog.Description>
+    </div>
   );
 });
 
@@ -100,34 +99,26 @@ interface DialogProps {
 }
 
 export const Dialog = memo(({ className, children, onBackdrop, onClose }: DialogProps) => {
+  const open = useContext(DialogOpenContext);
+
+  if (!open) {
+    return null;
+  }
+
   return (
-    <RadixDialog.Portal>
-      <RadixDialog.Overlay onClick={onBackdrop} asChild>
-        <motion.div
-          className="bg-black/50 fixed inset-0 z-max"
-          initial="closed"
-          animate="open"
-          exit="closed"
-          variants={dialogBackdropVariants}
-        />
-      </RadixDialog.Overlay>
-      <RadixDialog.Content asChild>
-        <motion.div
-          className={classNames(
-            'fixed top-[50%] left-[50%] z-max max-h-[85vh] w-[90vw] max-w-[450px] translate-x-[-50%] translate-y-[-50%] border border-bolt-elements-borderColor rounded-lg bg-bolt-elements-background-depth-2 shadow-lg focus:outline-none overflow-hidden',
-            className,
-          )}
-          initial="closed"
-          animate="open"
-          exit="closed"
-          variants={dialogVariants}
-        >
-          {children}
-          <RadixDialog.Close asChild onClick={onClose}>
-            <IconButton icon="i-ph:x" className="absolute top-[10px] right-[10px]" />
-          </RadixDialog.Close>
-        </motion.div>
-      </RadixDialog.Content>
-    </RadixDialog.Portal>
+    <div className="fixed inset-0 z-max">
+      <div className="bg-black/50 fixed inset-0 z-max" onClick={onBackdrop} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={classNames(
+          'fixed top-[50%] left-[50%] z-max max-h-[85vh] w-[90vw] max-w-[450px] translate-x-[-50%] translate-y-[-50%] border border-bolt-elements-borderColor rounded-lg bg-bolt-elements-background-depth-2 shadow-lg focus:outline-none overflow-hidden',
+          className,
+        )}
+      >
+        {children}
+        <IconButton icon="i-ph:x" className="absolute top-[10px] right-[10px]" onClick={onClose} />
+      </div>
+    </div>
   );
 });

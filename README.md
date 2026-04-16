@@ -1,54 +1,242 @@
-[![Bolt.new: AI-Powered Full-Stack Web Development in the Browser](./public/social_preview_index.jpg)](https://bolt.new)
+# CoderX
 
-# Bolt.new: AI-Powered Full-Stack Web Development in the Browser
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/Narayaaana11/CoderX)](https://github.com/Narayaaana11/CoderX)
+[![GitHub Issues](https://img.shields.io/github/issues/Narayaaana11/CoderX)](https://github.com/Narayaaana11/CoderX/issues)
 
-Bolt.new is an AI-powered web development agent that allows you to prompt, run, edit, and deploy full-stack applications directly from your browser—no local setup required. If you're here to build your own AI-powered web dev agent using the Bolt open source codebase, [click here to get started!](./CONTRIBUTING.md)
+CoderX is an open-source AI website builder that runs locally and helps you generate full-stack projects from plain-English prompts.
 
-## What Makes Bolt.new Different
+Repository: https://github.com/Narayaaana11/CoderX
 
-Claude, v0, etc are incredible- but you can't install packages, run backends or edit code. That’s where Bolt.new stands out:
+## Table of Contents
 
-- **Full-Stack in the Browser**: Bolt.new integrates cutting-edge AI models with an in-browser development environment powered by **StackBlitz’s WebContainers**. This allows you to:
-  - Install and run npm tools and libraries (like Vite, Next.js, and more)
-  - Run Node.js servers
-  - Interact with third-party APIs
-  - Deploy to production from chat
-  - Share your work via a URL
+- Overview
+- Quick Start
+- Full Setup
+- Run and Validate
+- How to Use
+- Project Structure
+- Contributing
+- Agent Setup Prompt
+- Troubleshooting
+- Community
+- License
 
-- **AI with Environment Control**: Unlike traditional dev environments where the AI can only assist in code generation, Bolt.new gives AI models **complete control** over the entire  environment including the filesystem, node server, package manager, terminal, and browser console. This empowers AI agents to handle the entire app lifecycle—from creation to deployment.
+## Overview
 
-Whether you’re an experienced developer, a PM or designer, Bolt.new allows you to build production-grade full-stack applications with ease.
+- Generate complete project files from chat prompts
+- Stream code updates into an in-browser editor and terminal
+- Run with local LLMs via Ollama
+- Optionally connect cloud LLM providers
+- Use an optional Python agent pipeline for GitHub context extraction
 
-For developers interested in building their own AI-powered development tools with WebContainers, check out the open-source Bolt codebase in this repo!
+## Quick Start
 
-## Tips and Tricks
+1. Clone and install:
 
-Here are some tips to get the most out of Bolt.new:
+```bash
+git clone https://github.com/Narayaaana11/CoderX.git
+cd CoderX
+npm install
+```
 
-- **Be specific about your stack**: If you want to use specific frameworks or libraries (like Astro, Tailwind, ShadCN, or any other popular JavaScript framework), mention them in your initial prompt to ensure Bolt scaffolds the project accordingly.
+2. Start Ollama and pull a model:
 
-- **Use the enhance prompt icon**: Before sending your prompt, try clicking the 'enhance' icon to have the AI model help you refine your prompt, then edit the results before submitting.
+```bash
+ollama pull qwen2.5-coder:7b
+ollama serve
+```
 
-- **Scaffold the basics first, then add features**: Make sure the basic structure of your application is in place before diving into more advanced functionality. This helps Bolt understand the foundation of your project and ensure everything is wired up right before building out more advanced functionality.
+3. Start CoderX:
 
-- **Batch simple instructions**: Save time by combining simple instructions into one message. For example, you can ask Bolt to change the color scheme, add mobile responsiveness, and restart the dev server, all in one go saving you time and reducing API credit consumption significantly.
+```bash
+npm run dev
+```
 
-## FAQs
+4. Open:
 
-**Where do I sign up for a paid plan?**  
-Bolt.new is free to get started. If you need more AI tokens or want private projects, you can purchase a paid subscription in your [Bolt.new](https://bolt.new) settings, in the lower-left hand corner of the application. 
+http://localhost:5173/workspace
 
-**What happens if I hit the free usage limit?**  
-Once your free daily token limit is reached, AI interactions are paused until the next day or until you upgrade your plan.
+## Full Setup
 
-**Is Bolt in beta?**  
-Yes, Bolt.new is in beta, and we are actively improving it based on feedback.
+### Prerequisites
 
-**How can I report Bolt.new issues?**  
-Check out the [Issues section](https://github.com/stackblitz/bolt.new/issues) to report an issue or request a new feature. Please use the search feature to check if someone else has already submitted the same issue/request.
+- Node.js 18.18+
+- Git
+- Ollama
 
-**What frameworks/libraries currently work on Bolt?**  
-Bolt.new supports most popular JavaScript frameworks and libraries. If it runs on StackBlitz, it will run on Bolt.new as well.
+Verify:
 
-**How can I add make sure my framework/project works well in bolt?**  
-We are excited to work with the JavaScript ecosystem to improve functionality in Bolt. Reach out to us via [hello@stackblitz.com](mailto:hello@stackblitz.com) to discuss how we can partner!
+```bash
+node -v
+git --version
+ollama --version
+```
+
+### Optional Local Model Configuration
+
+Create `.env.local` in the repo root:
+
+```env
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5-coder:7b
+```
+
+## Run and Validate
+
+Run development server:
+
+```bash
+npm run dev
+```
+
+Run project checks:
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npm run validate:baseline
+```
+
+## How to Use
+
+1. Open workspace UI
+2. Enter a build prompt in chat
+3. Watch generated files stream into editor
+4. Use terminal and preview to verify output
+
+Example prompts:
+
+- Build a portfolio website with hero, projects, and contact form
+- Build a task manager with filtering and local storage
+- Build a weather dashboard with responsive layout
+
+## Project Structure
+
+```text
+CoderX/
+  app/                  # Remix frontend
+	 routes/             # API + UI routes
+	 lib/                # Runtime, server LLM, webcontainer logic
+	 components/         # UI components
+	 types/              # Shared TS types
+  agent/                # Optional Python FastAPI agent service
+	 api/                # Agent routes
+	 agent/              # Search, select, clone, analyze, extract pipeline
+  functions/            # Cloudflare Pages entrypoint
+  scripts/              # Local start scripts
+```
+
+## Contributing
+
+Contributions are welcome.
+
+### Report Bugs
+
+Open an issue: https://github.com/Narayaaana11/CoderX/issues
+
+Include:
+
+- Reproduction steps
+- Expected vs actual behavior
+- OS, Node version, model used
+
+### Suggest Features
+
+Open an issue with enhancement context and user impact.
+
+### Submit a Pull Request
+
+1. Fork the repo
+2. Create branch: `feature/your-change`
+3. Implement changes
+4. Run `npm run validate:baseline`
+5. Open PR to `main`
+
+### Contribution Standards
+
+- Keep TypeScript strict
+- Add/update tests for logic changes
+- Avoid hardcoded secrets
+- Keep docs aligned with behavior
+
+## Agent Setup Prompt
+
+Use this prompt to ask an AI agent to set up the full project end-to-end:
+
+```text
+Set up the CoderX repository from scratch on this machine.
+
+Requirements:
+- Node.js 18.18+
+- Git
+- Ollama installed
+
+Steps:
+1. Clone repo:
+	git clone https://github.com/Narayaaana11/CoderX.git
+	cd CoderX
+2. Install dependencies:
+	npm install
+3. Verify tools:
+	node -v
+	git --version
+	ollama --version
+4. Start Ollama:
+	ollama serve
+5. Pull model:
+	ollama pull qwen2.5-coder:7b
+6. Create optional .env.local:
+	OLLAMA_BASE_URL=http://127.0.0.1:11434
+	OLLAMA_MODEL=qwen2.5-coder:7b
+7. Run app:
+	npm run dev
+8. Validate project:
+	npm run validate:baseline
+9. Confirm app loads at:
+	http://localhost:5173/workspace
+
+If setup fails:
+- Check Ollama process: ollama ps
+- Reinstall dependencies: npm install
+- Try alternate port: npm run dev -- --port 5174
+```
+
+## Troubleshooting
+
+### Ollama not responding
+
+```bash
+ollama ps
+ollama list
+ollama serve
+```
+
+### Dependency issues
+
+```bash
+npm install
+```
+
+### Port conflict
+
+```bash
+npm run dev -- --port 5174
+```
+
+### Rebuild from clean state
+
+```bash
+npm run build
+```
+
+## Community
+
+- Issues: https://github.com/Narayaaana11/CoderX/issues
+- Pull Requests: https://github.com/Narayaaana11/CoderX/pulls
+- Discussions: https://github.com/Narayaaana11/CoderX/discussions
+
+## License
+
+MIT. See LICENSE.

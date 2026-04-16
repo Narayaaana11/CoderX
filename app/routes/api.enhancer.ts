@@ -1,5 +1,6 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
 import { StreamingTextResponse, parseStreamPart } from 'ai';
+import { resolveProviderSettings } from '~/lib/.server/llm/provider-config';
 import { streamText } from '~/lib/.server/llm/stream-text';
 import { stripIndents } from '~/utils/stripIndent';
 
@@ -11,7 +12,26 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 async function enhancerAction({ context, request }: ActionFunctionArgs) {
-  const { message } = await request.json<{ message: string }>();
+  const { message, providerSettings } = await request.json<{
+    message: string;
+    providerSettings?: unknown;
+  }>();
+
+  const resolvedProviderSettings = resolveProviderSettings(providerSettings, context.cloudflare.env);
+
+  if (!resolvedProviderSettings.ok || !resolvedProviderSettings.settings) {
+    throw new Response(
+      JSON.stringify({
+        error: resolvedProviderSettings.error || 'Provider settings are invalid.',
+      }),
+      {
+        status: 400,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+        },
+      },
+    );
+  }
 
   try {
     const result = await streamText(
@@ -29,7 +49,7 @@ async function enhancerAction({ context, request }: ActionFunctionArgs) {
         `,
         },
       ],
-      context.cloudflare.env,
+      resolvedProviderSettings.settings,
     );
 
     const transformStream = new TransformStream({

@@ -1,4 +1,4 @@
-export interface BoltArtifactData {
+export interface CoderxArtifactData {
   id: string;
   title: string;
 }

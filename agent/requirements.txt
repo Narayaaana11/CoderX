@@ -1,0 +1,20 @@
+# CoderX — GitHub Intelligence Agent dependencies
+
+# HTTP requests (GitHub API calls, zip downloads)
+requests>=2.31.0
+
+# Optional: Higher-level GitHub API wrapper
+PyGithub>=2.1.1
+
+# Optional: Git operations via Python
+GitPython>=3.1.40
+
+# Optional: AST-level code parsing (advanced extraction)
+# tree-sitter>=0.21.0
+# tree-sitter-javascript>=0.21.0
+# tree-sitter-typescript>=0.21.0
+# tree-sitter-python>=0.21.0
+
+# Local API wrapper for integration with frontend
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0

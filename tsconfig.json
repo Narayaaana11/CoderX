@@ -16,18 +16,22 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./app/*"]
+      "~/*": ["./app/*"],
+      "@/*": ["./app/*"]
     },
 
     // vite takes care of building everything, not tsc
     "noEmit": true
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "**/.server/**/*.ts",
-    "**/.server/**/*.tsx",
-    "**/.client/**/*.ts",
-    "**/.client/**/*.tsx"
-  ]
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "types/**/*.d.ts",
+    "functions/**/*.ts",
+    "load-context.ts",
+    "worker-configuration.d.ts",
+    "vite.config.ts",
+    "uno.config.ts"
+  ],
+  "exclude": ["node_modules", "build", "public", "workspace"]
 }

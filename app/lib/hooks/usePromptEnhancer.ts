@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { llmSettingsStore } from '~/lib/stores/settings';
 import { createScopedLogger } from '~/utils/logger';
 
 const logger = createScopedLogger('usePromptEnhancement');
@@ -20,8 +21,16 @@ export function usePromptEnhancer() {
       method: 'POST',
       body: JSON.stringify({
         message: input,
+        providerSettings: llmSettingsStore.get(),
       }),
     });
+
+    if (!response.ok) {
+      logger.error('Prompt enhancement failed with status', response.status);
+      setEnhancingPrompt(false);
+      setPromptEnhanced(false);
+      return;
+    }
 
     const reader = response.body?.getReader();
 

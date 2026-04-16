@@ -2,11 +2,13 @@ import { useStore } from '@nanostores/react';
 import type { Message } from 'ai';
 import { useChat } from 'ai/react';
 import { useAnimate } from 'framer-motion';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { cssTransition, toast, ToastContainer } from 'react-toastify';
 import { useMessageParser, usePromptEnhancer, useShortcuts, useSnapScroll } from '~/lib/hooks';
 import { useChatHistory } from '~/lib/persistence';
 import { chatStore } from '~/lib/stores/chat';
+import { llmSettingsStore } from '~/lib/stores/settings';
+import { type LLMProviderSettings } from '~/types/llm';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { fileModificationsToHTML } from '~/utils/diff';
 import { cubicEasingFn } from '~/utils/easings';
@@ -19,6 +21,18 @@ const toastAnimation = cssTransition({
 });
 
 const logger = createScopedLogger('Chat');
+
+function getProviderLabel(provider: LLMProviderSettings['provider']): string {
+  if (provider === 'ollama-cloud') {
+    return 'Ollama Cloud';
+  }
+
+  if (provider === 'openai-compatible-cloud') {
+    return 'OpenAI-compatible';
+  }
+
+  return 'Ollama Local';
+}
 
 export function Chat() {
   renderLogger.trace('Chat');
@@ -72,11 +86,90 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
   const [chatStarted, setChatStarted] = useState(initialMessages.length > 0);
 
   const { showChat } = useStore(chatStore);
+  const llmSettings = useStore(llmSettingsStore);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+
+  const refreshModels = useCallback(
+    async (showErrorToast = true, settings: LLMProviderSettings = llmSettings) => {
+      setIsLoadingModels(true);
+
+      try {
+        const response = await fetch('/api/models', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            providerSettings: settings,
+          }),
+        });
+
+        const payload = await response.json<{ error?: string; models?: string[] }>();
+
+        if (!response.ok) {
+          throw new Error(payload.error || `Failed to load models (${response.status})`);
+        }
+
+        const models = payload.models || [];
+        setAvailableModels(models);
+
+        return models;
+      } catch (error) {
+        if (showErrorToast) {
+          toast.error(error instanceof Error ? error.message : 'Failed to load models');
+        }
+
+        setAvailableModels([]);
+        return [];
+      } finally {
+        setIsLoadingModels(false);
+      }
+    },
+    [llmSettings],
+  );
+
+  const setChatModel = useCallback(
+    (model: string) => {
+      const nextModel = model.trim();
+
+      if (!nextModel || nextModel === llmSettings.model) {
+        return;
+      }
+
+      if (llmSettings.provider === 'ollama-local') {
+        llmSettingsStore.set({
+          ...llmSettings,
+          model: nextModel,
+        });
+
+        return;
+      }
+
+      llmSettingsStore.set({
+        ...llmSettings,
+        model: nextModel,
+        apiKey: llmSettings.apiKey,
+      });
+    },
+    [llmSettings],
+  );
+
+  const reloadModels = useCallback(async () => {
+    const models = await refreshModels(true);
+
+    if (models.length > 0) {
+      toast.success(`Loaded ${models.length} models`);
+    }
+  }, [refreshModels]);
 
   const [animationScope, animate] = useAnimate();
 
   const { messages, isLoading, input, handleInputChange, setInput, stop, append } = useChat({
     api: '/api/chat',
+    body: {
+      providerSettings: llmSettings,
+    },
     onError: (error) => {
       logger.error('Request failed\n\n', error);
       toast.error('There was an error processing your request');
@@ -103,6 +196,10 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
       storeMessageHistory(messages).catch((error) => toast.error(error.message));
     }
   }, [messages, isLoading, parseMessages]);
+
+  useEffect(() => {
+    refreshModels(false).catch(() => undefined);
+  }, [refreshModels]);
 
   const scrollTextArea = () => {
     const textarea = textareaRef.current;
@@ -153,6 +250,8 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
       return;
     }
 
+    workbenchStore.abortAllActions();
+
     /**
      * @note (delm) Usually saving files shouldn't take long but it may take longer if there
      * many unsaved files. In that case we need to block user input and show an indicator
@@ -178,7 +277,14 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
        * manually reset the input and we'd have to manually pass in file attachments. However, those
        * aren't relevant here.
        */
-      append({ role: 'user', content: `${diff}\n\n${_input}` });
+      append(
+        { role: 'user', content: `${diff}\n\n${_input}` },
+        {
+          body: {
+            providerSettings: llmSettings,
+          },
+        },
+      );
 
       /**
        * After sending a new message we reset all modifications since the model
@@ -186,7 +292,14 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
        */
       workbenchStore.resetAllFileModifications();
     } else {
-      append({ role: 'user', content: _input });
+      append(
+        { role: 'user', content: _input },
+        {
+          body: {
+            providerSettings: llmSettings,
+          },
+        },
+      );
     }
 
     setInput('');
@@ -208,11 +321,17 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory }: ChatProp
       isStreaming={isLoading}
       enhancingPrompt={enhancingPrompt}
       promptEnhanced={promptEnhanced}
+      activeModel={llmSettings.model}
+      providerLabel={getProviderLabel(llmSettings.provider)}
+      availableModels={availableModels}
+      isLoadingModels={isLoadingModels}
       sendMessage={sendMessage}
       messageRef={messageRef}
       scrollRef={scrollRef}
       handleInputChange={handleInputChange}
       handleStop={abort}
+      onModelChange={setChatModel}
+      onReloadModels={reloadModels}
       messages={messages.map((message, i) => {
         if (message.role === 'user') {
           return message;

@@ -1,16 +1,26 @@
-import type { ActionType, BoltAction, BoltActionData, FileAction, ShellAction } from '~/types/actions';
-import type { BoltArtifactData } from '~/types/artifact';
+/**
+ * CoderX Artifact Parser
+ *
+ * Parses streaming LLM output for <coderxArtifact> and
+ * <coderxAction> XML tags. File actions write code to disk
+ * in real time. Shell actions execute commands in the terminal.
+ *
+ * To contribute: see CONTRIBUTING.md -> "Adding a New LLM Provider"
+ * GitHub: https://github.com/CoderX-ai/coderx
+ */
+import type { ActionType, CoderxAction, CoderxActionData, FileAction, ShellAction } from '~/types/actions';
+import type { CoderxArtifactData } from '~/types/artifact';
 import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
 
-const ARTIFACT_TAG_OPEN = '<boltArtifact';
-const ARTIFACT_TAG_CLOSE = '</boltArtifact>';
-const ARTIFACT_ACTION_TAG_OPEN = '<boltAction';
-const ARTIFACT_ACTION_TAG_CLOSE = '</boltAction>';
+const ARTIFACT_TAG_OPEN = '<coderxArtifact';
+const ARTIFACT_TAG_CLOSE = '</coderxArtifact>';
+const ARTIFACT_ACTION_TAG_OPEN = '<coderxAction';
+const ARTIFACT_ACTION_TAG_CLOSE = '</coderxAction>';
 
 const logger = createScopedLogger('MessageParser');
 
-export interface ArtifactCallbackData extends BoltArtifactData {
+export interface ArtifactCallbackData extends CoderxArtifactData {
   messageId: string;
 }
 
@@ -18,7 +28,7 @@ export interface ActionCallbackData {
   artifactId: string;
   messageId: string;
   actionId: string;
-  action: BoltAction;
+  action: CoderxAction;
 }
 
 export type ArtifactCallback = (data: ArtifactCallbackData) => void;
@@ -46,8 +56,8 @@ interface MessageState {
   position: number;
   insideArtifact: boolean;
   insideAction: boolean;
-  currentArtifact?: BoltArtifactData;
-  currentAction: BoltActionData;
+  currentArtifact?: CoderxArtifactData;
+  currentAction: CoderxActionData;
   actionId: number;
 }
 
@@ -110,7 +120,7 @@ export class StreamingMessageParser {
                */
               actionId: String(state.actionId - 1),
 
-              action: currentAction as BoltAction,
+              action: currentAction as CoderxAction,
             });
 
             state.insideAction = false;
@@ -136,7 +146,7 @@ export class StreamingMessageParser {
                 artifactId: currentArtifact.id,
                 messageId,
                 actionId: String(state.actionId++),
-                action: state.currentAction as BoltAction,
+                action: state.currentAction as CoderxAction,
               });
 
               i = actionEndIndex + 1;
@@ -191,7 +201,7 @@ export class StreamingMessageParser {
               const currentArtifact = {
                 id: artifactId,
                 title: artifactTitle,
-              } satisfies BoltArtifactData;
+              } satisfies CoderxArtifactData;
 
               state.currentArtifact = currentArtifact;
 
@@ -271,7 +281,7 @@ export class StreamingMessageParser {
 
 const createArtifactElement: ElementFactory = (props) => {
   const elementProps = [
-    'class="__boltArtifact__"',
+    'class="__coderxArtifact__"',
     ...Object.entries(props).map(([key, value]) => {
       return `data-${camelToDashCase(key)}=${JSON.stringify(value)}`;
     }),

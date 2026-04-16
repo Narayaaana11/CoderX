@@ -21,9 +21,15 @@ interface BaseChatProps {
   enhancingPrompt?: boolean;
   promptEnhanced?: boolean;
   input?: string;
+  activeModel?: string;
+  providerLabel?: string;
+  availableModels?: string[];
+  isLoadingModels?: boolean;
   handleStop?: () => void;
   sendMessage?: (event: React.UIEvent, messageInput?: string) => void;
   handleInputChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onModelChange?: (model: string) => void;
+  onReloadModels?: () => void;
   enhancePrompt?: () => void;
 }
 
@@ -50,14 +56,23 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       promptEnhanced = false,
       messages,
       input = '',
+      activeModel = '',
+      providerLabel = '',
+      availableModels = [],
+      isLoadingModels = false,
       sendMessage,
       handleInputChange,
+      onModelChange,
+      onReloadModels,
       enhancePrompt,
       handleStop,
     },
     ref,
   ) => {
     const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
+    const modelOptions = Array.from(
+      new Set([activeModel, ...availableModels].filter((model) => Boolean(model?.trim()))),
+    );
 
     return (
       <div
@@ -74,7 +89,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             {!chatStarted && (
               <div id="intro" className="mt-[26vh] max-w-chat mx-auto">
                 <h1 className="text-5xl text-center font-bold text-bolt-elements-textPrimary mb-2">
-                  Where ideas begin
+                  Build with CoderX
                 </h1>
                 <p className="mb-4 text-center text-bolt-elements-textSecondary">
                   Bring ideas to life in seconds or get help on existing projects.
@@ -130,7 +145,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       minHeight: TEXTAREA_MIN_HEIGHT,
                       maxHeight: TEXTAREA_MAX_HEIGHT,
                     }}
-                    placeholder="How can Bolt help you today?"
+                    placeholder="How can CoderX help you today?"
                     translate="no"
                   />
                   <ClientOnly>
@@ -149,6 +164,46 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       />
                     )}
                   </ClientOnly>
+                  <div className="flex flex-wrap items-center gap-2 border-t border-bolt-elements-borderColor px-4 py-2">
+                    <span className="text-[11px] text-bolt-elements-textTertiary">Model</span>
+                    <div className="relative min-w-[14rem] max-w-[20rem] flex-1">
+                      <select
+                        className="h-8 w-full appearance-none rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 pl-2 pr-7 text-xs text-bolt-elements-textPrimary outline-none focus:border-bolt-elements-borderColorActive"
+                        value={activeModel}
+                        onChange={(event) => onModelChange?.(event.target.value)}
+                      >
+                        {modelOptions.map((model) => (
+                          <option key={model} value={model}>
+                            {model}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-bolt-elements-textTertiary">
+                        <div className="i-ph:caret-down text-xs" />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 items-center gap-1 rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-2 text-xs text-bolt-elements-textSecondary enabled:hover:bg-bolt-elements-item-backgroundActive enabled:hover:text-bolt-elements-textPrimary disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => onReloadModels?.()}
+                      disabled={isLoadingModels}
+                    >
+                      {isLoadingModels ? (
+                        <>
+                          <div className="i-svg-spinners:90-ring-with-bg text-sm" />
+                          <span>Loading</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="i-ph:arrows-clockwise text-sm" />
+                          <span>Refresh</span>
+                        </>
+                      )}
+                    </button>
+                    <span className="ml-auto text-[11px] text-bolt-elements-textTertiary truncate">
+                      {providerLabel}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-sm p-4 pt-2">
                     <div className="flex gap-1 items-center">
                       <IconButton
@@ -202,6 +257,19 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                     );
                   })}
                 </div>
+              </div>
+            )}
+            {!chatStarted && (
+              <div className="w-full max-w-xl mx-auto mt-2 text-center text-[11px] text-zinc-600">
+                Open source · MIT License ·{' '}
+                <a
+                  href="https://github.com/CoderX-ai/coderx"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:underline"
+                >
+                  Contribute on GitHub ↗
+                </a>
               </div>
             )}
           </div>

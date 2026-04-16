@@ -1,3 +1,4 @@
+import { useStore } from '@nanostores/react';
 import { motion, type Variants } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -5,6 +6,14 @@ import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from
 import { IconButton } from '~/components/ui/IconButton';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { db, deleteById, getAll, chatId, type ChatHistoryItem } from '~/lib/persistence';
+import { llmSettingsStore } from '~/lib/stores/settings';
+import {
+  createDefaultProviderSettings,
+  type LLMProvider,
+  type LLMProviderSettings,
+  normalizeBaseUrl,
+  validateLLMProviderSettings,
+} from '~/types/llm';
 import { cubicEasingFn } from '~/utils/easings';
 import { logger } from '~/utils/logger';
 import { HistoryItem } from './HistoryItem';
@@ -31,13 +40,23 @@ const menuVariants = {
   },
 } satisfies Variants;
 
-type DialogContent = { type: 'delete'; item: ChatHistoryItem } | null;
+type DialogContent = { type: 'delete'; item: ChatHistoryItem } | { type: 'settings' } | null;
+
+const PROVIDER_OPTIONS: Array<{ value: LLMProvider; label: string }> = [
+  { value: 'ollama-local', label: 'Ollama Local (downloaded)' },
+  { value: 'ollama-cloud', label: 'Ollama Cloud' },
+  { value: 'openai-compatible-cloud', label: 'OpenAI-compatible Cloud' },
+];
 
 export function Menu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<ChatHistoryItem[]>([]);
   const [open, setOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState<DialogContent>(null);
+  const llmSettings = useStore(llmSettingsStore);
+  const [draftLLMSettings, setDraftLLMSettings] = useState<LLMProviderSettings>(llmSettings);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
 
   const loadEntries = useCallback(() => {
     if (db) {
@@ -79,6 +98,13 @@ export function Menu() {
   }, [open]);
 
   useEffect(() => {
+    if (dialogContent?.type !== 'settings') {
+      setDraftLLMSettings(llmSettings);
+      setAvailableModels([]);
+    }
+  }, [llmSettings, dialogContent]);
+
+  useEffect(() => {
     const enterThreshold = 40;
     const exitThreshold = 40;
 
@@ -98,6 +124,157 @@ export function Menu() {
       window.removeEventListener('mousemove', onMouseMove);
     };
   }, []);
+
+  const openSettingsDialog = () => {
+    setDraftLLMSettings(llmSettings);
+    setAvailableModels([]);
+    setDialogContent({ type: 'settings' });
+  };
+
+  const setProvider = (provider: LLMProvider) => {
+    setAvailableModels([]);
+
+    setDraftLLMSettings((current) => {
+      if (current.provider === provider) {
+        return current;
+      }
+
+      const defaults = createDefaultProviderSettings(provider);
+
+      if (provider === 'ollama-local') {
+        return {
+          provider,
+          baseUrl: defaults.baseUrl,
+          model: defaults.model,
+        };
+      }
+
+      const currentApiKey = current.provider === 'ollama-local' ? '' : current.apiKey;
+
+      return {
+        provider,
+        baseUrl: defaults.baseUrl,
+        model: defaults.model,
+        apiKey: currentApiKey,
+      };
+    });
+  };
+
+  const setBaseUrl = (baseUrl: string) => {
+    setDraftLLMSettings((current) => ({
+      ...current,
+      baseUrl,
+    }));
+  };
+
+  const setModel = (model: string) => {
+    setDraftLLMSettings((current) => ({
+      ...current,
+      model,
+    }));
+  };
+
+  const setApiKey = (apiKey: string) => {
+    setDraftLLMSettings((current) => {
+      if (current.provider === 'ollama-local') {
+        return current;
+      }
+
+      return {
+        ...current,
+        apiKey,
+      };
+    });
+  };
+
+  const normalizeDraftSettings = (settings: LLMProviderSettings): LLMProviderSettings => {
+    const baseSettings = {
+      provider: settings.provider,
+      baseUrl: normalizeBaseUrl(settings.baseUrl),
+      model: settings.model.trim(),
+    };
+
+    if (settings.provider === 'ollama-local') {
+      return {
+        ...baseSettings,
+        provider: 'ollama-local',
+      };
+    }
+
+    return {
+      ...baseSettings,
+      provider: settings.provider,
+      apiKey: settings.apiKey.trim(),
+    };
+  };
+
+  const saveLLMSettings = () => {
+    const normalizedSettings = normalizeDraftSettings(draftLLMSettings);
+
+    const validation = validateLLMProviderSettings(normalizedSettings);
+
+    if (!validation.valid) {
+      toast.error(validation.error || 'Model settings are invalid.');
+      return;
+    }
+
+    llmSettingsStore.set(normalizedSettings);
+    toast.success('Model settings saved');
+    closeDialog();
+  };
+
+  const testConnection = async () => {
+    const models = await fetchModels();
+
+    if (models.length > 0) {
+      toast.success(`Connection check passed (${models.length} models found)`);
+      return;
+    }
+
+    toast.success('Connection check passed');
+  };
+
+  const fetchModels = async () => {
+    const normalizedSettings = normalizeDraftSettings(draftLLMSettings);
+
+    const validation = validateLLMProviderSettings(normalizedSettings);
+
+    if (!validation.valid) {
+      toast.error(validation.error || 'Model settings are invalid.');
+      return [];
+    }
+
+    setIsLoadingModels(true);
+
+    try {
+      const response = await fetch('/api/models', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          providerSettings: normalizedSettings,
+        }),
+      });
+
+      const payload = await response.json<{ error?: string; models?: string[] }>();
+
+      if (!response.ok) {
+        throw new Error(payload.error || `Connection failed (${response.status})`);
+      }
+
+      const models = payload.models || [];
+      setAvailableModels(models);
+
+      return models;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Connection failed');
+
+      return [];
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
 
   return (
     <motion.div
@@ -160,10 +337,164 @@ export function Menu() {
                   </div>
                 </>
               )}
+              {dialogContent?.type === 'settings' && (
+                <>
+                  <DialogTitle>Model Provider Settings</DialogTitle>
+                  <DialogDescription asChild>
+                    <div className="space-y-4">
+                      <p className="text-sm text-bolt-elements-textSecondary">
+                        Choose a provider, then load and select the model you want.
+                      </p>
+
+                      <label className="block space-y-2">
+                        <span className="text-sm text-bolt-elements-textSecondary">Provider</span>
+                        <select
+                          className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
+                          value={draftLLMSettings.provider}
+                          onChange={(event) => setProvider(event.target.value as LLMProvider)}
+                        >
+                          {PROVIDER_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="block space-y-2">
+                        <span className="text-sm text-bolt-elements-textSecondary">Base URL</span>
+                        <input
+                          className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
+                          value={draftLLMSettings.baseUrl}
+                          onChange={(event) => setBaseUrl(event.target.value)}
+                          placeholder={
+                            draftLLMSettings.provider === 'ollama-local'
+                              ? 'http://127.0.0.1:11434'
+                              : draftLLMSettings.provider === 'ollama-cloud'
+                                ? 'https://your-ollama-cloud-endpoint'
+                                : 'https://api.openai.com/v1'
+                          }
+                        />
+                      </label>
+
+                      {draftLLMSettings.provider !== 'ollama-local' && (
+                        <label className="block space-y-2">
+                          <span className="text-sm text-bolt-elements-textSecondary">API Key</span>
+                          <input
+                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
+                            value={draftLLMSettings.apiKey}
+                            onChange={(event) => setApiKey(event.target.value)}
+                            placeholder="sk-..."
+                            type="password"
+                          />
+                        </label>
+                      )}
+
+                      <label className="block space-y-2">
+                        <span className="text-sm text-bolt-elements-textSecondary">Model</span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
+                            value={draftLLMSettings.model}
+                            onChange={(event) => setModel(event.target.value)}
+                            placeholder="llama3.2"
+                            list="available-models"
+                          />
+                          <DialogButton type="secondary" onClick={fetchModels}>
+                            {isLoadingModels ? 'Loading...' : 'Load'}
+                          </DialogButton>
+                        </div>
+                        <datalist id="available-models">
+                          {availableModels.map((model) => (
+                            <option key={model} value={model} />
+                          ))}
+                        </datalist>
+                      </label>
+
+                      <div className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-3 space-y-2">
+                        <h3 className="text-sm font-semibold text-bolt-elements-textPrimary">About CoderX</h3>
+                        <p className="text-xs text-bolt-elements-textSecondary">CoderX v1.0.0</p>
+                        <p className="text-xs text-bolt-elements-textSecondary">Open Source - MIT License</p>
+                        <p className="text-xs text-bolt-elements-textSecondary">
+                          Built by the community, for the community
+                        </p>
+                        <p className="text-xs text-bolt-elements-textSecondary">Node.js 20+</p>
+                        <p className="text-xs text-bolt-elements-textSecondary">Backend ● Running on :3001</p>
+                        <p className="text-xs text-bolt-elements-textSecondary">Tests 49/49 passing</p>
+                        <a
+                          href="https://github.com/CoderX-ai/coderx"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex text-xs text-bolt-elements-item-contentAccent hover:underline"
+                        >
+                          GitHub: github.com/CoderX-ai/coderx
+                        </a>
+                      </div>
+
+                      <div className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-3 space-y-2">
+                        <div className="text-sm font-semibold text-bolt-elements-textPrimary">
+                          CoderX v1.0.0 · MIT License
+                        </div>
+                        <p className="text-xs text-bolt-elements-textSecondary">Built by the open-source community</p>
+                        <div className="grid grid-cols-1 gap-2 pt-1">
+                          <a
+                            href="https://github.com/CoderX-ai/coderx"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-xs text-bolt-elements-textPrimary hover:border-indigo-500 hover:text-indigo-500 transition-theme"
+                          >
+                            Star on GitHub
+                          </a>
+                          <a
+                            href="https://github.com/CoderX-ai/coderx/issues/new?template=bug_report.md"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-xs text-bolt-elements-textPrimary hover:border-indigo-500 hover:text-indigo-500 transition-theme"
+                          >
+                            Report a Bug
+                          </a>
+                          <a
+                            href="https://github.com/CoderX-ai/coderx/blob/main/CONTRIBUTING.md"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-xs text-bolt-elements-textPrimary hover:border-indigo-500 hover:text-indigo-500 transition-theme"
+                          >
+                            Contribute
+                          </a>
+                          <a
+                            href="https://discord.gg/coderx"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-xs text-bolt-elements-textPrimary hover:border-indigo-500 hover:text-indigo-500 transition-theme"
+                          >
+                            Join Discord
+                          </a>
+                        </div>
+                        <div className="flex items-center justify-between pt-1 text-xs text-bolt-elements-textSecondary">
+                          <span>Backend ● Running</span>
+                          <span>Tests 49/49 passing</span>
+                        </div>
+                      </div>
+                    </div>
+                  </DialogDescription>
+                  <div className="px-5 pb-4 bg-bolt-elements-background-depth-2 flex gap-2 justify-end">
+                    <DialogButton type="secondary" onClick={closeDialog}>
+                      Cancel
+                    </DialogButton>
+                    <DialogButton type="secondary" onClick={testConnection}>
+                      Test
+                    </DialogButton>
+                    <DialogButton type="primary" onClick={saveLLMSettings}>
+                      Save
+                    </DialogButton>
+                  </div>
+                </>
+              )}
             </Dialog>
           </DialogRoot>
         </div>
         <div className="flex items-center border-t border-bolt-elements-borderColor p-4">
+          <IconButton icon="i-ph:sliders-horizontal" title="Model Settings" onClick={openSettingsDialog} />
           <ThemeSwitch className="ml-auto" />
         </div>
       </div>

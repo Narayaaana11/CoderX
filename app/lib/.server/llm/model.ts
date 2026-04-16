@@ -1,9 +1,27 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenAI } from '@ai-sdk/openai';
+import { ensureOpenAICompatibleBaseUrl, type LLMProviderSettings } from '~/types/llm';
 
-export function getAnthropicModel(apiKey: string) {
-  const anthropic = createAnthropic({
-    apiKey,
+function getAuthorizationHeader(apiKey: string) {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+  };
+}
+
+export function getModelFromProviderConfig(providerSettings: LLMProviderSettings) {
+  if (providerSettings.provider === 'openai-compatible-cloud') {
+    const openai = createOpenAI({
+      apiKey: providerSettings.apiKey,
+      baseURL: ensureOpenAICompatibleBaseUrl(providerSettings.baseUrl),
+    });
+
+    return openai(providerSettings.model);
+  }
+
+  const openai = createOpenAI({
+    apiKey: providerSettings.provider === 'ollama-local' ? 'ollama' : providerSettings.apiKey,
+    baseURL: ensureOpenAICompatibleBaseUrl(providerSettings.baseUrl),
+    headers: providerSettings.provider === 'ollama-local' ? undefined : getAuthorizationHeader(providerSettings.apiKey),
   });
 
-  return anthropic('claude-3-5-sonnet-20240620');
+  return openai(providerSettings.model);
 }
