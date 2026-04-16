@@ -6,6 +6,8 @@
 
 CoderX is an open-source AI website builder that runs locally and helps you generate full-stack projects from plain-English prompts.
 
+If this project helps you, please star the repo: https://github.com/Narayaaana11/CoderX
+
 Repository: https://github.com/Narayaaana11/CoderX
 
 ## Table of Contents
