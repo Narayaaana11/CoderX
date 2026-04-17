@@ -48,6 +48,15 @@ const PROVIDER_OPTIONS: Array<{ value: LLMProvider; label: string }> = [
   { value: 'openai-compatible-cloud', label: 'OpenAI-compatible Cloud' },
 ];
 
+const SKILL_SUGGESTIONS = [
+  'Accessibility-first UI',
+  'Clean Architecture',
+  'Type-safe APIs',
+  'Test-driven development',
+  'Performance optimization',
+  'Security hardening',
+];
+
 export function Menu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<ChatHistoryItem[]>([]);
@@ -138,8 +147,8 @@ export function Menu() {
     setDialogContent({ type: 'settings' });
   };
 
-  const addSkill = () => {
-    const normalizedSkill = skillInput.trim();
+  const addSkillWithValue = (rawSkill: string) => {
+    const normalizedSkill = rawSkill.trim();
 
     if (!normalizedSkill) {
       return;
@@ -156,6 +165,10 @@ export function Menu() {
     }
 
     setDraftSkills((current) => [...current, normalizedSkill]);
+  };
+
+  const addSkill = () => {
+    addSkillWithValue(skillInput);
     setSkillInput('');
   };
 
@@ -373,77 +386,81 @@ export function Menu() {
               )}
               {dialogContent?.type === 'settings' && (
                 <>
-                  <DialogTitle>Model Provider Settings</DialogTitle>
+                  <DialogTitle>Workspace Settings</DialogTitle>
                   <DialogDescription asChild>
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       <p className="text-sm text-bolt-elements-textSecondary">
-                        Choose a provider, then load and select the model you want.
+                        Configure model access and add development skills to shape generation quality.
                       </p>
 
-                      <label className="block space-y-2">
-                        <span className="text-sm text-bolt-elements-textSecondary">Provider</span>
-                        <select
-                          className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
-                          value={draftLLMSettings.provider}
-                          onChange={(event) => setProvider(event.target.value as LLMProvider)}
-                        >
-                          {PROVIDER_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <div className="rounded-xl border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-3.5 space-y-3">
+                        <h3 className="text-sm font-semibold text-bolt-elements-textPrimary">Model Provider</h3>
 
-                      <label className="block space-y-2">
-                        <span className="text-sm text-bolt-elements-textSecondary">Base URL</span>
-                        <input
-                          className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
-                          value={draftLLMSettings.baseUrl}
-                          onChange={(event) => setBaseUrl(event.target.value)}
-                          placeholder={
-                            draftLLMSettings.provider === 'ollama-local'
-                              ? 'http://127.0.0.1:11434'
-                              : draftLLMSettings.provider === 'ollama-cloud'
-                                ? 'https://your-ollama-cloud-endpoint'
-                                : 'https://api.openai.com/v1'
-                          }
-                        />
-                      </label>
-
-                      {draftLLMSettings.provider !== 'ollama-local' && (
                         <label className="block space-y-2">
-                          <span className="text-sm text-bolt-elements-textSecondary">API Key</span>
+                          <span className="text-sm text-bolt-elements-textSecondary">Provider</span>
+                          <select
+                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/35"
+                            value={draftLLMSettings.provider}
+                            onChange={(event) => setProvider(event.target.value as LLMProvider)}
+                          >
+                            {PROVIDER_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="block space-y-2">
+                          <span className="text-sm text-bolt-elements-textSecondary">Base URL</span>
                           <input
-                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
-                            value={draftLLMSettings.apiKey}
-                            onChange={(event) => setApiKey(event.target.value)}
-                            placeholder="sk-..."
-                            type="password"
+                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/35"
+                            value={draftLLMSettings.baseUrl}
+                            onChange={(event) => setBaseUrl(event.target.value)}
+                            placeholder={
+                              draftLLMSettings.provider === 'ollama-local'
+                                ? 'http://127.0.0.1:11434'
+                                : draftLLMSettings.provider === 'ollama-cloud'
+                                  ? 'https://your-ollama-cloud-endpoint'
+                                  : 'https://api.openai.com/v1'
+                            }
                           />
                         </label>
-                      )}
 
-                      <label className="block space-y-2">
-                        <span className="text-sm text-bolt-elements-textSecondary">Model</span>
-                        <div className="flex items-center gap-2">
-                          <input
-                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
-                            value={draftLLMSettings.model}
-                            onChange={(event) => setModel(event.target.value)}
-                            placeholder="llama3.2"
-                            list="available-models"
-                          />
-                          <DialogButton type="secondary" onClick={fetchModels}>
-                            {isLoadingModels ? 'Loading...' : 'Load'}
-                          </DialogButton>
-                        </div>
-                        <datalist id="available-models">
-                          {availableModels.map((model) => (
-                            <option key={model} value={model} />
-                          ))}
-                        </datalist>
-                      </label>
+                        {draftLLMSettings.provider !== 'ollama-local' && (
+                          <label className="block space-y-2">
+                            <span className="text-sm text-bolt-elements-textSecondary">API Key</span>
+                            <input
+                              className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/35"
+                              value={draftLLMSettings.apiKey}
+                              onChange={(event) => setApiKey(event.target.value)}
+                              placeholder="sk-..."
+                              type="password"
+                            />
+                          </label>
+                        )}
+
+                        <label className="block space-y-2">
+                          <span className="text-sm text-bolt-elements-textSecondary">Model</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/35"
+                              value={draftLLMSettings.model}
+                              onChange={(event) => setModel(event.target.value)}
+                              placeholder="llama3.2"
+                              list="available-models"
+                            />
+                            <DialogButton type="secondary" onClick={fetchModels}>
+                              {isLoadingModels ? 'Loading...' : 'Load'}
+                            </DialogButton>
+                          </div>
+                          <datalist id="available-models">
+                            {availableModels.map((model) => (
+                              <option key={model} value={model} />
+                            ))}
+                          </datalist>
+                        </label>
+                      </div>
 
                       <div className="rounded-xl border border-bolt-elements-borderColor bg-gradient-to-br from-bolt-elements-background-depth-1 to-bolt-elements-background-depth-2 p-3 space-y-3">
                         <div>
@@ -455,7 +472,7 @@ export function Menu() {
 
                         <div className="flex items-center gap-2">
                           <input
-                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-2"
+                            className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-2 focus:outline-none focus:ring-2 focus:ring-cyan-500/35"
                             value={skillInput}
                             onChange={(event) => setSkillInput(event.target.value)}
                             onKeyDown={(event) => {
@@ -469,6 +486,19 @@ export function Menu() {
                           <DialogButton type="secondary" onClick={addSkill}>
                             Add
                           </DialogButton>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {SKILL_SUGGESTIONS.map((skill) => (
+                            <button
+                              type="button"
+                              key={skill}
+                              onClick={() => addSkillWithValue(skill)}
+                              className="rounded-full border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-2.5 py-1 text-[11px] text-bolt-elements-textSecondary hover:border-cyan-500/40 hover:text-cyan-200 transition-theme"
+                            >
+                              + {skill}
+                            </button>
+                          ))}
                         </div>
 
                         <div className="flex flex-wrap gap-2 min-h-8">
@@ -490,9 +520,9 @@ export function Menu() {
                         </div>
                       </div>
 
-                      <div className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-3 space-y-2">
+                      <div className="rounded-xl border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-3.5 space-y-2">
                         <h3 className="text-sm font-semibold text-bolt-elements-textPrimary">About CoderX</h3>
-                        <p className="text-xs text-bolt-elements-textSecondary">CoderX v1.0.0</p>
+                        <p className="text-xs text-bolt-elements-textSecondary">CoderX v1.0.0 · MIT License</p>
                         <p className="text-xs text-bolt-elements-textSecondary">Open Source - MIT License</p>
                         <p className="text-xs text-bolt-elements-textSecondary">
                           Built by the community, for the community
@@ -501,58 +531,13 @@ export function Menu() {
                         <p className="text-xs text-bolt-elements-textSecondary">Backend ● Running on :3001</p>
                         <p className="text-xs text-bolt-elements-textSecondary">Tests 49/49 passing</p>
                         <a
-                          href="https://github.com/CoderX-ai/coderx"
+                          href="https://github.com/Narayaaana11/CoderX"
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex text-xs text-bolt-elements-item-contentAccent hover:underline"
                         >
-                          GitHub: github.com/CoderX-ai/coderx
+                          GitHub: github.com/Narayaaana11/CoderX
                         </a>
-                      </div>
-
-                      <div className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-3 space-y-2">
-                        <div className="text-sm font-semibold text-bolt-elements-textPrimary">
-                          CoderX v1.0.0 · MIT License
-                        </div>
-                        <p className="text-xs text-bolt-elements-textSecondary">Built by the open-source community</p>
-                        <div className="grid grid-cols-1 gap-2 pt-1">
-                          <a
-                            href="https://github.com/CoderX-ai/coderx"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-xs text-bolt-elements-textPrimary hover:border-indigo-500 hover:text-indigo-500 transition-theme"
-                          >
-                            Star on GitHub
-                          </a>
-                          <a
-                            href="https://github.com/CoderX-ai/coderx/issues/new?template=bug_report.md"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-xs text-bolt-elements-textPrimary hover:border-indigo-500 hover:text-indigo-500 transition-theme"
-                          >
-                            Report a Bug
-                          </a>
-                          <a
-                            href="https://github.com/CoderX-ai/coderx/blob/main/CONTRIBUTING.md"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-xs text-bolt-elements-textPrimary hover:border-indigo-500 hover:text-indigo-500 transition-theme"
-                          >
-                            Contribute
-                          </a>
-                          <a
-                            href="https://discord.gg/coderx"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-xs text-bolt-elements-textPrimary hover:border-indigo-500 hover:text-indigo-500 transition-theme"
-                          >
-                            Join Discord
-                          </a>
-                        </div>
-                        <div className="flex items-center justify-between pt-1 text-xs text-bolt-elements-textSecondary">
-                          <span>Backend ● Running</span>
-                          <span>Tests 49/49 passing</span>
-                        </div>
                       </div>
                     </div>
                   </DialogDescription>
